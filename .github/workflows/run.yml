@@ -68,21 +68,38 @@ jobs:
           echo curl_exec(\$ch) . PHP_EOL;
           "
 
-      - name: Test create
+     - name: Test create
         run: |
-          php -r "
+          cat > /tmp/test_create.php << 'PHPEOF'
+          <?php
           require 'vendor/autoload.php';
-          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          \$dotenv->safeLoad();
-          \$signer = new Hitrov\OCI\Signer(
+          $dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
+          $dotenv->safeLoad();
+          $signer = new Hitrov\OCI\Signer(
               getenv('OCI_TENANCY_ID'),
               getenv('OCI_USER_ID'),
               getenv('OCI_KEY_FINGERPRINT'),
               getenv('OCI_PRIVATE_KEY_FILENAME')
           );
-          \$url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances/';
-          \$sshKey = getenv('OCI_SSH_PUBLIC_KEY');
-          \$body = '{\"availabilityDomain\":\"GxtN:SA-SAOPAULO-1-AD-1\",\"compartmentId\":\"' . getenv('OCI_TENANCY_ID') . '\",\"shape\":\"VM.Standard.A1.Flex\",\"shapeConfig\":{\"ocpus\":4,\"memoryInGBs\":24},\"sourceDe
-
+          $url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances/';
+          $body = json_encode([
+              'availabilityDomain' => getenv('OCI_AVAILABILITY_DOMAIN'),
+              'compartmentId' => getenv('OCI_TENANCY_ID'),
+              'shape' => 'VM.Standard.A1.Flex',
+              'shapeConfig' => ['ocpus' => 4, 'memoryInGBs' => 24],
+              'sourceDetails' => ['sourceType' => 'image', 'imageId' => getenv('OCI_IMAGE_ID')],
+              'createVnicDetails' => ['assignPublicIp' => false, 'subnetId' => getenv('OCI_SUBNET_ID')],
+              'metadata' => ['ssh_authorized_keys' => getenv('OCI_SSH_PUBLIC_KEY')],
+          ]);
+          $headers = $signer->getHeaders($url, 'POST', $body, 'application/json');
+          $ch = curl_init($url);
+          curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+          curl_setopt($ch, CURLOPT_POST, true);
+          curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+          curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+          echo curl_exec($ch) . PHP_EOL;
+          PHPEOF
+          php /tmp/test_create.php
+          
       - name: Run script
         run: php ./index.php
