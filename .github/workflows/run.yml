@@ -45,6 +45,11 @@ jobs:
           ]
           open('.env', 'w').write('\n'.join(lines))
           "
+
+      - name: Debug env
+        run: |
+          echo "=== .env gerado ==="
+          cat .env | sed 's/=.*/=***/'
           
       - name: Debug key
         run: |
