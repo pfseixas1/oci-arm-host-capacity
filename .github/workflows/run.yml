@@ -20,16 +20,7 @@ jobs:
       - name: Write private key
         env:
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-        run: |
-          printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem || echo "FAILED"
-          echo "SIZE: $(wc -c < /tmp/oci_key.pem)"
-          echo "FORMAT: $(head -1 /tmp/oci_key.pem)"
-
-      - name: Show key format
-        run: head -1 /tmp/oci_key.pem
-
-      - name: Check fingerprint
-        run: openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
+        run: printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
 
       - name: Create .env
         env:
@@ -38,82 +29,24 @@ jobs:
           python3 -c "
           import os
           lines = [
-          'OCI_REGION=${{ secrets.OCI_REGION }}',
-          'OCI_USER_ID=${{ secrets.OCI_USER_ID }}',
-          'OCI_TENANCY_ID=${{ secrets.OCI_TENANCY_ID }}',
-          'OCI_COMPARTMENT_ID=${{ secrets.OCI_TENANCY_ID }}',
-          'OCI_KEY_FINGERPRINT=${{ secrets.OCI_KEY_FINGERPRINT }}',
-          'OCI_PRIVATE_KEY_FILENAME=/tmp/oci_key.pem',
-          'OCI_SUBNET_ID=${{ secrets.OCI_SUBNET_ID }}',
-          'OCI_IMAGE_ID=${{ secrets.OCI_IMAGE_ID }}',
-          'OCI_SSH_PUBLIC_KEY=\"' + os.environ['OCI_SSH_PUBLIC_KEY'] + '\"',
-          'OCI_AVAILABILITY_DOMAIN=${{ secrets.OCI_AVAILABILITY_DOMAIN }}',
-          'OCI_SHAPE=VM.Standard.A1.Flex',
-          'OCI_OCPUS=4',
-          'OCI_MEMORY_IN_GBS=24',
-          'OCI_MAX_INSTANCES=1',
+            'OCI_REGION=${{ secrets.OCI_REGION }}',
+            'OCI_USER_ID=${{ secrets.OCI_USER_ID }}',
+            'OCI_TENANCY_ID=${{ secrets.OCI_TENANCY_ID }}',
+            'OCI_KEY_FINGERPRINT=${{ secrets.OCI_KEY_FINGERPRINT }}',
+            'OCI_PRIVATE_KEY_FILENAME=/tmp/oci_key.pem',
+            'OCI_SUBNET_ID=${{ secrets.OCI_SUBNET_ID }}',
+            'OCI_IMAGE_ID=${{ secrets.OCI_IMAGE_ID }}',
+            'OCI_SSH_PUBLIC_KEY=\"' + os.environ['OCI_SSH_PUBLIC_KEY'] + '\"',
+            'OCI_AVAILABILITY_DOMAIN=${{ secrets.OCI_AVAILABILITY_DOMAIN }}',
+            'OCI_SHAPE=VM.Standard.A1.Flex',
+            'OCI_OCPUS=4',
+            'OCI_MEMORY_IN_GBS=24',
+            'OCI_MAX_INSTANCES=1',
+            'CACHE_AVAILABILITY_DOMAINS=1',
+            'TOO_MANY_REQUESTS_TIME_WAIT=600',
           ]
           open('.env', 'w').write('\n'.join(lines))
           "
-
-      - name: Test OCI auth
-        run: |
-          php -r "
-          require 'vendor/autoload.php';
-          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          \$dotenv->safeLoad();
-          \$signer = new Hitrov\OCI\Signer(
-              getenv('OCI_TENANCY_ID'),
-              getenv('OCI_USER_ID'),
-              getenv('OCI_KEY_FINGERPRINT'),
-              getenv('OCI_PRIVATE_KEY_FILENAME')
-          );
-          \$url = 'https://identity.sa-saopaulo-1.oraclecloud.com/20160918/users/' . getenv('OCI_USER_ID');
-          \$headers = \$signer->getHeaders(\$url, 'GET', null, 'application/json');
-          \$ch = curl_init(\$url);
-          curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
-          curl_setopt(\$ch, CURLOPT_HTTPHEADER, \$headers);
-          \$response = curl_exec(\$ch);
-          echo \$response . PHP_EOL;
-          "
-
-      - name: Test PHP auth
-        run: |
-          echo "USER: $(grep OCI_USER_ID .env | cut -d= -f2)"
-          echo "FINGERPRINT: $(grep OCI_KEY_FINGERPRINT .env | cut -d= -f2)"
-          echo "KEY EXISTS: $([ -f /tmp/oci_key.pem ] && echo YES || echo NO)"
-          echo "KEY LINES: $(wc -l < /tmp/oci_key.pem)"
-          echo "KEY FORMAT: $(head -1 /tmp/oci_key.pem)"
-
-      - name: Test list instances
-        run: |
-          php -r "
-          require 'vendor/autoload.php';
-          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          \$dotenv->safeLoad();
-          \$signer = new Hitrov\OCI\Signer(
-              getenv('OCI_TENANCY_ID'),
-              getenv('OCI_USER_ID'),
-              getenv('OCI_KEY_FINGERPRINT'),
-              getenv('OCI_PRIVATE_KEY_FILENAME')
-          );
-          \$url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances?compartmentId=' . getenv('OCI_TENANCY_ID');
-          \$headers = \$signer->getHeaders(\$url, 'GET', null, 'application/json');
-          \$ch = curl_init(\$url);
-          curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
-          curl_setopt(\$ch, CURLOPT_HTTPHEADER, \$headers);
-          \$response = curl_exec(\$ch);
-          echo \$response . PHP_EOL;
-          "
-
-      - name: Key format check
-        run: |
-          head -1 /tmp/oci_key.pem | wc -c
-          wc -l /tmp/oci_key.pem
-
-      - name: Test API direct
-        run: |
-          curl -v "https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances?compartmentId=ocid1.tenancy.oc1..aaaaaaaavngz554jlrtxzjdsk4lctrecj5vctzrrbmqejh6pelgeimiux6xq" 2>&1 | tail -20
 
       - name: Run script
         run: php ./index.php
