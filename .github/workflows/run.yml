@@ -71,6 +71,14 @@ jobs:
       - name: Check fingerprint
         run: |
           openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
+
+      - name: Debug env values
+        run: |
+          echo "FINGERPRINT=$(grep OCI_KEY_FINGERPRINT .env)"
+          echo "USER=$(grep OCI_USER_ID .env)"
+          echo "TENANCY=$(grep OCI_TENANCY_ID .env)"
+          echo "REGION=$(grep OCI_REGION .env)"
+          echo "KEY_FILE=$(grep OCI_PRIVATE_KEY_FILENAME .env)"    
           
       - name: Run script
         run: php ./index.php
