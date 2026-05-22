@@ -1,10 +1,8 @@
 name: OCI ARM Instance Creator
-
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
-
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -24,11 +22,12 @@ jobs:
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
         run: printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
 
-      - name: Show key type
-        run: |
-          wc -c /tmp/oci_key.pem
-          wc -l /tmp/oci_key.pem
-        
+      - name: Show key format
+        run: head -1 /tmp/oci_key.pem
+
+      - name: Check fingerprint
+        run: openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
+
       - name: Create .env
         env:
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
@@ -53,41 +52,5 @@ jobs:
           open('.env', 'w').write('\n'.join(lines))
           "
 
-      - name: Debug env
-        run: |
-          echo "=== .env gerado ==="
-          cat .env | sed 's/=.*/=***/'
-          
-      - name: Debug key
-        run: |
-          echo "=== primeiras 3 linhas do pem ==="
-          head -3 /tmp/oci_key.pem
-          echo "=== total de linhas ==="
-          wc -l /tmp/oci_key.pem
-
-      - name: Validate key
-        run: openssl rsa -in /tmp/oci_key.pem -check -noout 2>&1 || openssl pkey -in /tmp/oci_key.pem -check -noout 2>&1
-
-      - name: Check fingerprint
-        run: |
-          openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
-
-      - name: Show key format
-        run: head -1 /tmp/oci_key.pem
-
-      - name: Debug env values
-        run: |
-          echo "FINGERPRINT=$(grep OCI_KEY_FINGERPRINT .env)"
-          echo "USER=$(grep OCI_USER_ID .env)"
-          echo "TENANCY=$(grep OCI_TENANCY_ID .env)"
-          echo "REGION=$(grep OCI_REGION .env)"
-          echo "KEY_FILE=$(grep OCI_PRIVATE_KEY_FILENAME .env)"   
-
-       - name: Test auth
-        run: |
-          curl -s --request GET \
-            "https://identity.$(grep OCI_REGION .env | cut -d= -f2).oraclecloud.com/20160918/users/$(grep OCI_USER_ID .env | cut -d= -f2)" \
-            | head -c 200
-          
       - name: Run script
         run: php ./index.php
