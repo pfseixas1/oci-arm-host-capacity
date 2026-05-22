@@ -68,5 +68,21 @@ jobs:
           echo curl_exec(\$ch) . PHP_EOL;
           "
 
+      - name: Test create
+        run: |
+          php -r "
+          require 'vendor/autoload.php';
+          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
+          \$dotenv->safeLoad();
+          \$signer = new Hitrov\OCI\Signer(
+              getenv('OCI_TENANCY_ID'),
+              getenv('OCI_USER_ID'),
+              getenv('OCI_KEY_FINGERPRINT'),
+              getenv('OCI_PRIVATE_KEY_FILENAME')
+          );
+          \$url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances/';
+          \$sshKey = getenv('OCI_SSH_PUBLIC_KEY');
+          \$body = '{\"availabilityDomain\":\"GxtN:SA-SAOPAULO-1-AD-1\",\"compartmentId\":\"' . getenv('OCI_TENANCY_ID') . '\",\"shape\":\"VM.Standard.A1.Flex\",\"shapeConfig\":{\"ocpus\":4,\"memoryInGBs\":24},\"sourceDe
+
       - name: Run script
         run: php ./index.php
