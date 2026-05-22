@@ -20,7 +20,10 @@ jobs:
       - name: Write private key
         env:
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-        run: printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
+        run: |
+          printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem || echo "FAILED"
+          echo "SIZE: $(wc -c < /tmp/oci_key.pem)"
+          echo "FORMAT: $(head -1 /tmp/oci_key.pem)"
 
       - name: Show key format
         run: head -1 /tmp/oci_key.pem
