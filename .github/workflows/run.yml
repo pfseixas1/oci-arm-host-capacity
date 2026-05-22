@@ -22,8 +22,8 @@ jobs:
       - name: Write private key
         env:
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-        run: echo "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
-
+        run: printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
+        
       - name: Create .env
         env:
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
