@@ -62,6 +62,10 @@ jobs:
 
       - name: Validate key
         run: openssl rsa -in /tmp/oci_key.pem -check -noout 2>&1 || openssl pkey -in /tmp/oci_key.pem -check -noout 2>&1
+
+      - name: Check fingerprint
+        run: |
+          openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
           
       - name: Run script
         run: php ./index.php
