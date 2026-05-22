@@ -7,79 +7,40 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Install OCI CLI
+        run: |
+          pip install oci-cli --quiet
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-
-      - name: Install dependencies
-        run: composer install --no-interaction
-
-      - name: Write private key
+      - name: Configure OCI CLI
         env:
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
-        run: printf '%s' "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
-
-      - name: Create .env
-        env:
-          OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
         run: |
-          python3 -c "
-          import os
-          lines = [
-            'OCI_REGION=${{ secrets.OCI_REGION }}',
-            'OCI_USER_ID=${{ secrets.OCI_USER_ID }}',
-            'OCI_TENANCY_ID=${{ secrets.OCI_TENANCY_ID }}',
-            'OCI_KEY_FINGERPRINT=${{ secrets.OCI_KEY_FINGERPRINT }}',
-            'OCI_PRIVATE_KEY_FILENAME=/tmp/oci_key.pem',
-            'OCI_SUBNET_ID=${{ secrets.OCI_SUBNET_ID }}',
-            'OCI_IMAGE_ID=${{ secrets.OCI_IMAGE_ID }}',
-            'OCI_SSH_PUBLIC_KEY=\"' + os.environ['OCI_SSH_PUBLIC_KEY'] + '\"',
-            'OCI_AVAILABILITY_DOMAIN=${{ secrets.OCI_AVAILABILITY_DOMAIN }}',
-            'OCI_SHAPE=VM.Standard.A1.Flex',
-            'OCI_OCPUS=4',
-            'OCI_MEMORY_IN_GBS=24',
-            'OCI_MAX_INSTANCES=1',
-            'CACHE_AVAILABILITY_DOMAINS=1',
-            'TOO_MANY_REQUESTS_TIME_WAIT=600',
-          ]
-          open('.env', 'w').write('\n'.join(lines))
-          "
+          mkdir -p ~/.oci
+          printf '%s' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          cat > ~/.oci/config << OCIEOF
+          [DEFAULT]
+          user=${{ secrets.OCI_USER_ID }}
+          fingerprint=${{ secrets.OCI_KEY_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_TENANCY_ID }}
+          region=${{ secrets.OCI_REGION }}
+          key_file=~/.oci/key.pem
+          OCIEOF
 
-      - name: Test create
+      - name: Test auth
+        run: oci iam user get --user-id ${{ secrets.OCI_USER_ID }} --query 'data.name' --raw-output
+
+      - name: Launch instance
         run: |
-          cat > /tmp/test_create.php << 'PHPEOF'
-          <?php
-          require 'vendor/autoload.php';
-          $dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          $dotenv->safeLoad();
-          $signer = new Hitrov\OCI\Signer(
-              getenv('OCI_TENANCY_ID'),
-              getenv('OCI_USER_ID'),
-              getenv('OCI_KEY_FINGERPRINT'),
-              getenv('OCI_PRIVATE_KEY_FILENAME')
-          );
-          $url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances/';
-          $body = json_encode([
-              'availabilityDomain' => getenv('OCI_AVAILABILITY_DOMAIN'),
-              'compartmentId' => getenv('OCI_TENANCY_ID'),
-              'shape' => 'VM.Standard.A1.Flex',
-              'shapeConfig' => ['ocpus' => 4, 'memoryInGBs' => 24],
-              'sourceDetails' => ['sourceType' => 'image', 'imageId' => getenv('OCI_IMAGE_ID')],
-              'createVnicDetails' => ['assignPublicIp' => false, 'subnetId' => getenv('OCI_SUBNET_ID')],
-              'metadata' => ['ssh_authorized_keys' => getenv('OCI_SSH_PUBLIC_KEY')],
-          ]);
-          $headers = $signer->getHeaders($url, 'POST', $body, 'application/json');
-          $ch = curl_init($url);
-          curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-          curl_setopt($ch, CURLOPT_POST, true);
-          curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-          curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-          echo curl_exec($ch) . PHP_EOL;
-          PHPEOF
-          php /tmp/test_create.php
-
-      - name: Run script
-        run: php ./index.php
+          oci compute instance launch \
+            --availability-domain "${{ secrets.OCI_AVAILABILITY_DOMAIN }}" \
+            --compartment-id "${{ secrets.OCI_TENANCY_ID }}" \
+            --shape "VM.Standard.A1.Flex" \
+            --shape-config '{"ocpus":4,"memoryInGBs":24}' \
+            --image-id "${{ secrets.OCI_IMAGE_ID }}" \
+            --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
+            --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUBLIC_KEY }}") \
+            --assign-public-ip false \
+            --wait-for-state RUNNING \
+            --max-wait-seconds 300 \
+          || echo "FAILED - will retry next run"
