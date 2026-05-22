@@ -79,6 +79,12 @@ jobs:
           echo "TENANCY=$(grep OCI_TENANCY_ID .env)"
           echo "REGION=$(grep OCI_REGION .env)"
           echo "KEY_FILE=$(grep OCI_PRIVATE_KEY_FILENAME .env)"    
+
+      - name: Test auth
+        run: |
+          curl -s --request GET \
+            "https://identity.$(grep OCI_REGION .env | cut -d= -f2).oraclecloud.com/20160918/users/$(grep OCI_USER_ID .env | cut -d= -f2)" \
+            | head -c 200
           
       - name: Run script
         run: php ./index.php
