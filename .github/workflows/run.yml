@@ -61,6 +61,11 @@ jobs:
           echo "KEY LINES: $(wc -l < /tmp/oci_key.pem)"
           echo "KEY FORMAT: $(head -1 /tmp/oci_key.pem)"
 
+      - name: Key format check
+        run: |
+          head -1 /tmp/oci_key.pem | wc -c
+          wc -l /tmp/oci_key.pem
+
       - name: Test API direct
         run: |
           curl -v "https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances?compartmentId=ocid1.tenancy.oc1..aaaaaaaavngz554jlrtxzjdsk4lctrecj5vctzrrbmqejh6pelgeimiux6xq" 2>&1 | tail -20
