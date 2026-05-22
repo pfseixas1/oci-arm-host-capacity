@@ -72,6 +72,9 @@ jobs:
         run: |
           openssl pkey -in /tmp/oci_key.pem -pubout 2>/dev/null | openssl md5 -c
 
+      - name: Show key format
+        run: head -1 /tmp/oci_key.pem
+
       - name: Debug env values
         run: |
           echo "FINGERPRINT=$(grep OCI_KEY_FINGERPRINT .env)"
@@ -79,9 +82,6 @@ jobs:
           echo "TENANCY=$(grep OCI_TENANCY_ID .env)"
           echo "REGION=$(grep OCI_REGION .env)"
           echo "KEY_FILE=$(grep OCI_PRIVATE_KEY_FILENAME .env)"   
-
-       - name: Show key format
-        run: head -1 /tmp/oci_key.pem
 
        - name: Test auth
         run: |
