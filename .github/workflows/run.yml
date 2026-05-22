@@ -85,6 +85,27 @@ jobs:
           echo "KEY LINES: $(wc -l < /tmp/oci_key.pem)"
           echo "KEY FORMAT: $(head -1 /tmp/oci_key.pem)"
 
+      - name: Test list instances
+        run: |
+          php -r "
+          require 'vendor/autoload.php';
+          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
+          \$dotenv->safeLoad();
+          \$signer = new Hitrov\OCI\Signer(
+              getenv('OCI_TENANCY_ID'),
+              getenv('OCI_USER_ID'),
+              getenv('OCI_KEY_FINGERPRINT'),
+              getenv('OCI_PRIVATE_KEY_FILENAME')
+          );
+          \$url = 'https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances?compartmentId=' . getenv('OCI_TENANCY_ID');
+          \$headers = \$signer->getHeaders(\$url, 'GET', null, 'application/json');
+          \$ch = curl_init(\$url);
+          curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
+          curl_setopt(\$ch, CURLOPT_HTTPHEADER, \$headers);
+          \$response = curl_exec(\$ch);
+          echo \$response . PHP_EOL;
+          "
+
       - name: Key format check
         run: |
           head -1 /tmp/oci_key.pem | wc -c
