@@ -45,6 +45,13 @@ jobs:
           ]
           open('.env', 'w').write('\n'.join(lines))
           "
-
+          
+      - name: Debug key
+        run: |
+          echo "=== primeiras 3 linhas do pem ==="
+          head -3 /tmp/oci_key.pem
+          echo "=== total de linhas ==="
+          wc -l /tmp/oci_key.pem
+          
       - name: Run script
         run: php ./index.php
