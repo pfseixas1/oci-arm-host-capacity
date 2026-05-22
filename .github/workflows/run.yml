@@ -20,7 +20,9 @@ jobs:
         run: composer install --no-interaction
 
       - name: Write private key
-        run: echo "${{ secrets.OCI_PRIVATE_KEY }}" > /tmp/oci_key.pem
+        env:
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: echo "$OCI_PRIVATE_KEY" > /tmp/oci_key.pem
 
       - name: Create .env
         env:
