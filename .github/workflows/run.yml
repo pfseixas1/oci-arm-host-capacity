@@ -55,15 +55,11 @@ jobs:
 
       - name: Test PHP auth
         run: |
-          php -r "
-          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          \$dotenv->safeLoad();
-          echo 'USER: ' . getenv('OCI_USER_ID') . PHP_EOL;
-          echo 'TENANCY: ' . getenv('OCI_TENANCY_ID') . PHP_EOL;
-          echo 'FINGERPRINT: ' . getenv('OCI_KEY_FINGERPRINT') . PHP_EOL;
-          echo 'KEY: ' . getenv('OCI_PRIVATE_KEY_FILENAME') . PHP_EOL;
-          echo 'KEY EXISTS: ' . (file_exists(getenv('OCI_PRIVATE_KEY_FILENAME')) ? 'YES' : 'NO') . PHP_EOL;
-          "
+          echo "USER: $(grep OCI_USER_ID .env | cut -d= -f2)"
+          echo "FINGERPRINT: $(grep OCI_KEY_FINGERPRINT .env | cut -d= -f2)"
+          echo "KEY EXISTS: $([ -f /tmp/oci_key.pem ] && echo YES || echo NO)"
+          echo "KEY LINES: $(wc -l < /tmp/oci_key.pem)"
+          echo "KEY FORMAT: $(head -1 /tmp/oci_key.pem)"
 
       - name: Test API direct
         run: |
