@@ -48,27 +48,7 @@ jobs:
           open('.env', 'w').write('\n'.join(lines))
           "
 
-      - name: Test availability domains
-        run: |
-          php -r "
-          require 'vendor/autoload.php';
-          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
-          \$dotenv->safeLoad();
-          \$signer = new Hitrov\OCI\Signer(
-              getenv('OCI_TENANCY_ID'),
-              getenv('OCI_USER_ID'),
-              getenv('OCI_KEY_FINGERPRINT'),
-              getenv('OCI_PRIVATE_KEY_FILENAME')
-          );
-          \$url = 'https://identity.sa-saopaulo-1.oraclecloud.com/20160918/availabilityDomains?compartmentId=' . getenv('OCI_TENANCY_ID');
-          \$headers = \$signer->getHeaders(\$url, 'GET', null, 'application/json');
-          \$ch = curl_init(\$url);
-          curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
-          curl_setopt(\$ch, CURLOPT_HTTPHEADER, \$headers);
-          echo curl_exec(\$ch) . PHP_EOL;
-          "
-
-     - name: Test create
+      - name: Test create
         run: |
           cat > /tmp/test_create.php << 'PHPEOF'
           <?php
@@ -100,6 +80,6 @@ jobs:
           echo curl_exec($ch) . PHP_EOL;
           PHPEOF
           php /tmp/test_create.php
-          
+
       - name: Run script
         run: php ./index.php
