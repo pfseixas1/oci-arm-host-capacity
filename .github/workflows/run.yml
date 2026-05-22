@@ -58,7 +58,7 @@ jobs:
           echo "=== total de linhas ==="
           wc -l /tmp/oci_key.pem
 
-          - name: Validate key
+      - name: Validate key
         run: openssl rsa -in /tmp/oci_key.pem -check -noout 2>&1 || openssl pkey -in /tmp/oci_key.pem -check -noout 2>&1
           
       - name: Run script
