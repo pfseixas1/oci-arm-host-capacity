@@ -56,6 +56,27 @@ jobs:
           open('.env', 'w').write('\n'.join(lines))
           "
 
+      - name: Test OCI auth
+        run: |
+          php -r "
+          require 'vendor/autoload.php';
+          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
+          \$dotenv->safeLoad();
+          \$signer = new Hitrov\OCI\Signer(
+              getenv('OCI_TENANCY_ID'),
+              getenv('OCI_USER_ID'),
+              getenv('OCI_KEY_FINGERPRINT'),
+              getenv('OCI_PRIVATE_KEY_FILENAME')
+          );
+          \$url = 'https://identity.sa-saopaulo-1.oraclecloud.com/20160918/users/' . getenv('OCI_USER_ID');
+          \$headers = \$signer->getHeaders(\$url, 'GET', null, 'application/json');
+          \$ch = curl_init(\$url);
+          curl_setopt(\$ch, CURLOPT_RETURNTRANSFER, true);
+          curl_setopt(\$ch, CURLOPT_HTTPHEADER, \$headers);
+          \$response = curl_exec(\$ch);
+          echo \$response . PHP_EOL;
+          "
+
       - name: Test PHP auth
         run: |
           echo "USER: $(grep OCI_USER_ID .env | cut -d= -f2)"
