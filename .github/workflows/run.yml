@@ -53,6 +53,18 @@ jobs:
           open('.env', 'w').write('\n'.join(lines))
           "
 
+      - name: Test PHP auth
+        run: |
+          php -r "
+          \$dotenv = Dotenv\Dotenv::createUnsafeImmutable(__DIR__);
+          \$dotenv->safeLoad();
+          echo 'USER: ' . getenv('OCI_USER_ID') . PHP_EOL;
+          echo 'TENANCY: ' . getenv('OCI_TENANCY_ID') . PHP_EOL;
+          echo 'FINGERPRINT: ' . getenv('OCI_KEY_FINGERPRINT') . PHP_EOL;
+          echo 'KEY: ' . getenv('OCI_PRIVATE_KEY_FILENAME') . PHP_EOL;
+          echo 'KEY EXISTS: ' . (file_exists(getenv('OCI_PRIVATE_KEY_FILENAME')) ? 'YES' : 'NO') . PHP_EOL;
+          "
+
       - name: Test API direct
         run: |
           curl -v "https://iaas.sa-saopaulo-1.oraclecloud.com/20160918/instances?compartmentId=ocid1.tenancy.oc1..aaaaaaaavngz554jlrtxzjdsk4lctrecj5vctzrrbmqejh6pelgeimiux6xq" 2>&1 | tail -20
