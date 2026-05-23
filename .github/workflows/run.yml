@@ -6,10 +6,12 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:
+      SUPPRESS_LABEL_WARNING: True
+      OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING: True
     steps:
       - name: Install OCI CLI
-        run: |
-          pip install oci-cli --quiet
+        run: pip install oci-cli --quiet
 
       - name: Configure OCI CLI
         env:
@@ -24,15 +26,14 @@ jobs:
           fingerprint=${{ secrets.OCI_KEY_FINGERPRINT }}
           tenancy=${{ secrets.OCI_TENANCY_ID }}
           region=${{ secrets.OCI_REGION }}
-          key_file=~/.oci/key.pem
+          key_file=/home/runner/.oci/key.pem
           OCIEOF
-
-      - name: Test auth
-        run: oci iam user get --user-id ${{ secrets.OCI_USER_ID }} --query 'data.name' --raw-output
+          chmod 600 ~/.oci/config
 
       - name: Launch instance
+        id: launch
         run: |
-          oci compute instance launch \
+          OUTPUT=$(oci compute instance launch \
             --availability-domain "${{ secrets.OCI_AVAILABILITY_DOMAIN }}" \
             --compartment-id "${{ secrets.OCI_TENANCY_ID }}" \
             --shape "VM.Standard.A1.Flex" \
@@ -40,14 +41,19 @@ jobs:
             --image-id "${{ secrets.OCI_IMAGE_ID }}" \
             --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
             --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUBLIC_KEY }}") \
-            --assign-public-ip false \
-            --wait-for-state RUNNING \
-            --max-wait-seconds 300 \
-          || echo "FAILED - will retry next run"
+            --assign-public-ip false 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q '"id"'; then
+            echo "created=true" >> $GITHUB_OUTPUT
+            INSTANCE_ID=$(echo "$OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "unknown")
+            echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          else
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Validate resources
+      - name: Notify Telegram
+        if: steps.launch.outputs.created == 'true'
         run: |
-          echo "=== Validating image ==="
-          oci compute image get --image-id "${{ secrets.OCI_IMAGE_ID }}" --query 'data.{"displayName":"display-name","lifecycleState":"lifecycle-state"}' 2>&1 || echo "IMAGE INVALID"
-          echo "=== Validating subnet ==="
-          oci network subnet get --subnet-id "${{ secrets.OCI_SUBNET_ID }}" --query 'data.{"displayName":"display-name","lifecycleState":"lifecycle-state"}' 2>&1 || echo "SUBNET INVALID"
+          curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=✅ OCI Instance ARM criada com sucesso!%0AID: ${{ steps.launch.outputs.instance_id }}%0ARegião: sa-saopaulo-1%0AAcesse o console OCI para adicionar IP público."
