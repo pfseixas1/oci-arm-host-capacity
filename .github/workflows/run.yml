@@ -34,7 +34,7 @@ jobs:
         id: launch
         run: |
           set +e
-          oci compute instance launch \
+          OUTPUT=$(oci compute instance launch \
             --availability-domain "${{ secrets.OCI_AVAILABILITY_DOMAIN }}" \
             --compartment-id "${{ secrets.OCI_TENANCY_ID }}" \
             --shape "VM.Standard.A1.Flex" \
@@ -42,12 +42,19 @@ jobs:
             --image-id "${{ secrets.OCI_IMAGE_ID }}" \
             --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
             --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUBLIC_KEY }}") \
-            --assign-public-ip false
-          echo "Exit code: $?"
+            --assign-public-ip false 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q '"id"'; then
+            echo "created=true" >> $GITHUB_OUTPUT
+            INSTANCE_ID=$(echo "$OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "unknown")
+            echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          else
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Notify Telegram
         if: steps.launch.outputs.created == 'true'
         run: |
           curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
             -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d "text=✅ OCI Instance ARM criada com sucesso!%0AID: ${{ steps.launch.outputs.instance_id }}%0ARegião: sa-saopaulo-1%0AAcesse o console OCI para adicionar IP público."
+            -d "text=✅ OCI Instance ARM criada!%0AID: ${{ steps.launch.outputs.instance_id }}%0ARegião: sa-saopaulo-1%0AAcesse o console OCI para adicionar IP público."
