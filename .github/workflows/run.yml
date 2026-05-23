@@ -44,3 +44,10 @@ jobs:
             --wait-for-state RUNNING \
             --max-wait-seconds 300 \
           || echo "FAILED - will retry next run"
+
+      - name: Validate resources
+        run: |
+          echo "=== Validating image ==="
+          oci compute image get --image-id "${{ secrets.OCI_IMAGE_ID }}" --query 'data.{"displayName":"display-name","lifecycleState":"lifecycle-state"}' 2>&1 || echo "IMAGE INVALID"
+          echo "=== Validating subnet ==="
+          oci network subnet get --subnet-id "${{ secrets.OCI_SUBNET_ID }}" --query 'data.{"displayName":"display-name","lifecycleState":"lifecycle-state"}' 2>&1 || echo "SUBNET INVALID"
